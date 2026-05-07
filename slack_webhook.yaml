@@ -1,0 +1,143 @@
+wantType:
+  metadata:
+    name: slack_notify
+    title: Slack Notified
+    description: |
+      Receives messages from Slack via the Events API (HTTP POST).
+
+      Creates a webhook endpoint at /api/v1/webhooks/{want-name}.
+      Handles Slack URL verification challenge automatically.
+      Payloads are stored as a FIFO buffer (last 20) in slack_messages.
+      Supports Slack request signing verification.
+
+      Raw payloads land in slack_latest_message. For structured parsing
+      (user / text / channel extraction), add a Python Agent Skill to this plugin.
+    version: '2.0'
+    category: system
+    pattern: generator
+
+  goType: webhook_receiver
+
+  parameters:
+  - name: signing_secret
+    description: |
+      Slack Signing Secret for request signature verification.
+      Found in Slack App settings under "Basic Information" > "App Credentials".
+      If empty, signature verification is skipped.
+    type: string
+    default: ""
+    required: false
+    example: "8f742231b10e8888abcd99yyyzzz85a5"
+
+  - name: channel_filter
+    description: If set, only messages from this Slack channel ID are processed.
+    type: string
+    default: ""
+    required: false
+    example: "C01ABCDEF23"
+
+  # Internal params consumed by webhook_receiver Go type
+  - name: state_prefix
+    description: Prefix for state keys (slack_messages, slack_message_count, …)
+    type: string
+    default: "slack"
+
+  - name: verify_type
+    description: Signature verification strategy (slack_signing for Slack).
+    type: string
+    default: "slack_signing"
+
+  - name: secret_param
+    description: Name of the param that holds the secret value.
+    type: string
+    default: "signing_secret"
+
+  - name: challenge_field
+    description: JSON field for Slack URL verification challenge response.
+    type: string
+    default: "challenge"
+
+  state:
+  - name: slack_webhook_status
+    description: Current status of the webhook (active, stopped)
+    type: string
+    persistent: true
+    initialValue: "active"
+    label: current
+
+  - name: slack_latest_message
+    description: Most recently received Slack payload (raw JSON)
+    type: object
+    persistent: true
+    initialValue: {}
+    label: current
+
+  - name: slack_message_count
+    description: Total number of messages received
+    type: int
+    persistent: true
+    initialValue: 0
+    label: current
+
+  - name: slack_messages
+    description: FIFO buffer of last 20 received payloads
+    type: "[]object"
+    persistent: true
+    initialValue: []
+    label: current
+
+  - name: achieving_percentage
+    description: 50 while active, 100 when stopped
+    type: int
+    persistent: true
+    initialValue: 0
+    label: current
+
+  - name: webhook_url
+    description: Webhook endpoint path for this want
+    type: string
+    persistent: true
+    initialValue: ""
+    label: current
+
+  finalResultField: webhook_url
+
+  connectivity:
+    outputs:
+    - name: slack_messages
+      type: event
+      data_type: webhook_message
+      description: Incoming Slack payloads forwarded to downstream wants
+
+  constraints:
+  - description: Webhook URL is derived from Want Name
+    validation: Want must be deployed before webhook URL is active
+
+  examples:
+  - name: Basic Slack Inbox
+    description: Simple webhook receiver for Slack messages
+    expectedBehavior: |
+      1. Create a Slack App with Event Subscriptions enabled
+      2. Deploy this want
+      3. Set Request URL: POST http://<host>/api/v1/webhooks/{want-name}
+      4. Slack URL verification challenge is handled automatically
+
+      TEST:
+      curl -X POST http://localhost:8080/api/v1/webhooks/{want-name} \
+        -H "Content-Type: application/json" \
+        -d '{"type":"event_callback","event":{"type":"message","user":"U01ABCDEF","text":"hello","channel":"C01ABCDEF23","ts":"1234567890.123456"}}'
+    want:
+      metadata:
+        name: slack-inbox
+        type: slack_notify
+      spec:
+        params:
+          signing_secret: ""
+          channel_filter: ""
+
+  relatedTypes:
+  - teams_notify
+  - reminder
+
+  seeAlso:
+  - Slack Events API documentation
