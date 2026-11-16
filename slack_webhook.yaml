@@ -1,6 +1,8 @@
 wantType:
   metadata:
     name: slack_notify
+    labels:
+      aliases: "slack,通知"
     title: Slack Notified
     description: |
       Receives messages from Slack via the Events API (HTTP POST).
