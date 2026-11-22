@@ -21,6 +21,15 @@ wantType:
   goType: webhook_receiver
 
   parameters:
+  - name: outgoing_webhook_url
+    description: |
+      Slack Incoming Webhook URL to post to, when the person says yes to
+      posting something this want heard (a failure: hear.py). Empty: nothing
+      is posted.
+    type: string
+    subType: secret
+    recordMemo: false
+    default: ""
   - name: signing_secret
     description: |
       Slack Signing Secret for request signature verification.
